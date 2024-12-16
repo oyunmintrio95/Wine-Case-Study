@@ -1,0 +1,10 @@
+name: WineShiny
+title: WineShiny
+username: hcheon-dds
+account: hcheon-dds
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 13602680
+bundleId: 9524873
+url: https://hcheon-dds.shinyapps.io/WineShiny/
+version: 1

@@ -1,0 +1,20 @@
+Package: Wine_Shiny
+Type: ShinyApp
+Title: A Wine Data Viewer and Analysis
+Version: 1.0.0
+Authors@R: c(person("Hayoung", "Cheon", email = "hcheon@mail.smu.edu", role = c("aut", "cre")))
+Description: A Shiny application for wine data analysis.
+Depends:
+    R (>= 4.0.0),
+    shiny,
+    ggplot2,
+    plotly,
+    DT,
+    dplyr,
+    rmarkdown,
+    knitr,
+    jsonlite,
+    htmltools
+License: GPL-3
+Encoding: UTF-8
+LazyData: true
