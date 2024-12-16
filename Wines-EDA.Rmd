@@ -1,0 +1,472 @@
+---
+title: "Wines-EDA"
+author: "Hayoung Cheon"
+date: "2024-12-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# EDA
+
+## Load Library
+```{r}
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+library(GGally)
+library(plotly)
+library(ggthemes)
+library(corrplot)
+library(knitr)
+```
+
+## Load Data
+```{r}
+wines <- read.csv("/Users/oyunm/Desktop/SMU/DS-6306-Doing-the-Data-Science/Project 2/Wine Train Set.csv")
+head(wines)
+```
+
+## Exploration of data
+There are all 14 variables, except for ID, where there are three categorical variables(quality, location, type) and the remaining 11 variables are numeric
+```{r}
+summary(wines)
+str(wines)
+```
+
+## Boxplots of Quality vs each numeric variable
+
+## A box plot of fixed.acidity vs. quality
+Fixed Acidity measures the natural acids in wine that contribute to its structure, flavor, and color. Only after quality eight is the less fixed. Acidity is more quality, but for quality 9, that was not the case.
+```{r}
+## ensure quality as a factor
+wines$quality <- as.factor(wines$quality)
+wines %>% ggplot(aes(x=quality, y=fixed.acidity,  color=quality)) + geom_boxplot()
+```
+
+## A box plot of volatile.acidity vs quality
+Volatile Acidity evaporates quickly and contributes to a wine's aroma—the less volatile the acidity, the higher the quality.
+```{r}
+wines %>% ggplot(aes(x=quality, y=volatile.acidity,  color=quality)) + geom_boxplot()
+```
+
+## A box plot of citric.acidity vs. quality
+
+Citric Acid can be used for acidification in wines that are naturally lacking in Acid. It adds liveliness and freshness to the wine, bringing a fresher, fruity citrus note. 
+The more citric Acid there is, the higher the quality.
+```{r}
+wines %>% ggplot(aes(x=quality, y=citric.acid,  color=quality)) + geom_boxplot()
+```
+
+## A box plot of residual sugar vs quality
+
+Residual sugar in wine is from natural grape sugars left in a wine after the alcoholic fermentation finishes. The medians throughout the quality doesn't show much difference.
+```{r}
+wines %>% ggplot(aes(x=quality, y=residual.sugar,  color=quality)) + geom_boxplot()
+```
+
+## A box plot of chlorides vs quality
+
+The amount of chloride in wine is influenced by the type of grape, the vineyard's location, and surrounding soil and water conditions. According to research, a high level of wine can lead to a decrease in its market appeal. The boxplots display that lower chlorides have better quality. 
+```{r}
+wines %>% ggplot(aes(x=quality, y=chlorides,  color=quality)) + geom_boxplot()
+```
+
+## A box plot of FSO2 vs quality
+
+The amount of sulfur dioxide in wine is available to protect it from oxidation. It inhibits the growth of microorganisms. The more there is free sulfur dioxide, the better quality.
+```{r}
+wines %>% ggplot(aes(x=quality, y=free.sulfur.dioxide,  color=quality)) + geom_boxplot()
+```
+
+## A box plot of Total Sulfur Dioxide vs quality
+
+TSP2 is the amount of sulfur dioxide that is free in the wine and also the amount that is bound to other chemicals in the wine. It is also a preservative used in wine-making to prevent oxidation and spoilage and to maintain freshness. The higher the total sulfur dioxide, the better the quality.
+```{r}
+wines %>% ggplot(aes(x=quality, y=total.sulfur.dioxide,  color=quality)) + geom_boxplot()
+```
+
+## A box plot of Density vs quality
+
+Density is about concentration and a fuller body. Better quality wines displayed lesser density.
+```{r}
+wines %>% ggplot(aes(x=quality, y=density,  color=quality)) + geom_boxplot()
+```
+
+## A box plot of PH vs quality
+
+Lower pH makes the wine more stable and protects it against bacteria. The median distribution of quality shows a curve pattern. It shows a decreasing trend from quality 3 to 5, but after quality 5, the quality is better as pH increases. However, since quality 3 and quality 9 have similar pH median. 
+```{r}
+wines %>% ggplot(aes(x=quality, y=pH,  color=quality)) + geom_boxplot()
+```
+
+## A box plot of sulphates vs quality
+
+Sulfates are a group of chemical compounds, including sulfur dioxide. Yeast produces sulfites during fermentation. However, there are some differences in distribution. The median of each quality doesn't show the big difference.
+```{r}
+wines %>% ggplot(aes(x=quality, y=sulphates,  color=quality)) + geom_boxplot()
+```
+
+## A box plot of alcohol vs quality
+
+There is a curve pattern. Until wine quality 5, the alcohol decreases, but from quality 6, it increases.
+```{r}
+wines %>% ggplot(aes(x=quality, y=alcohol,  color=quality)) + geom_boxplot()
+
+```
+
+## Boxplots of Quality vs each categorical variables
+
+## Clean data: califormia -> california
+```{r}
+table(wines$quality, wines$type)
+table(wines$quality, wines$location)
+
+wines$location <- gsub("Califormia", "California", wines$location, ignore.case=TRUE)
+table(wines$quality, wines$location)
+
+```
+
+## A barchart of type vs quality
+
+Mostly white wine shows higher quality, however we need to cautious with sample size difference.
+```{r}
+# Assuming 'wines' is your data frame
+wines_summary <- wines %>%
+  group_by(quality, type) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  mutate(percentage = count / sum(count)) # Optional: Calculate proportions
+
+wines_summary %>%
+  ggplot(aes(x = quality, y = count, fill = type)) +
+  geom_bar(stat = "identity", position = "fill") +
+  geom_text(aes(label = count), 
+            position = position_fill(vjust = 0.5), # Position the labels inside the bars
+            color = "white") +
+  ggtitle("A Barchart of Quality by Type") +
+  xlab("Quality") +
+  ylab("Proportion") +
+  theme_bw()
+```
+
+## A barchart of location vs quality
+
+Mostly California has higher distribution of quality
+```{r}
+wines_summary <- wines %>%
+  group_by(quality, location) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  mutate(percentage = count / sum(count)) # Optional: Calculate proportions
+
+wines_summary %>%
+  ggplot(aes(x = quality, y = count, fill = location)) +
+  geom_bar(stat = "identity", position = "fill") +
+  geom_text(aes(label = count), 
+            position = position_fill(vjust = 0.5), # Position the labels inside the bars
+            color = "white") +
+  ggtitle("A Barchart of Quality by Location") +
+  xlab("Quality") +
+  ylab("Proportion") +
+  theme_bw()
+```
+
+
+## Correlation matrix between columns
+
+- Density vs. alcohol: -0.70
+- Density vs. residual.sugar: 0.55
+- total.sulfur vs. residual.sugar : 0.50
+- Density vs. fixed.acidity : 0.47
+- Quality vs. alcohol : 0.44
+- Free.sulfur vs. residual.sugar : 0.41
+- Sulphates vs. chlorides : 0.40
+```{r}
+
+excluded_columns <- c("ID","type", "location")
+selected_data <- wines[, setdiff(names(wines), excluded_columns)]
+
+str(selected_data)
+selected_data$quality <- as.numeric(selected_data$quality)
+
+# Compute correlation matrix for the selected columns
+cor_matrix <- cor(selected_data)
+print(cor_matrix)
+
+# Visualize correlation matrix
+
+# Install and load the corrplot package
+#install.packages("corrplot")
+library(corrplot)
+
+# Plot the correlation matrix
+corrplot(
+  cor_matrix, 
+  method = "circle",
+  addCoef.col = "black",
+  number.cex = 0.8,          # Adjust text size for values
+  tl.col = "black",          # Black color for labels
+  tl.cex = 0.8  
+  )
+
+```
+
+
+## A boxplot vs Type grouped by locatioin
+```{r}
+# Fixed Acidity
+# Wines from cool-climate grapes are usually high in acidity, while wines from warm-climate grapes can be low in acid.
+
+# Red has higher fixed acidity in general. However, by location, California has higher red wine, and Texas has higher fixed acidity with white wine.
+wines %>% ggplot(aes(x=type, y=fixed.acidity, fill=location)) + geom_boxplot() + theme_bw() + labs(title = "A Boxplot of Fixed Acidity by Type", x = "Type", y="Fixed Acidity", color = "Location")
+
+# Volatile Acidity
+
+# Red has higher volatile acidity, and Texas has higher volatile acidity in both red and white
+# Legal Limits: 1.2grams per liter
+wines %>% ggplot(aes(x=type, y=volatile.acidity, fill=location)) + geom_boxplot() + theme_bw() + labs(title = "A Boxplot of Volatile Acidity by Type", x = "Type", y="Volatile Acidity", color = "Location")
+
+# Citric Acid
+# California tends to have higher cTexas acidity in both red and white. The Texas red wine tends to have a lower distribution of citric acid.
+# I see unusual outliers in California white wine.
+
+# California tends to add more citric acid than Texas, 
+wines %>% ggplot(aes(x=type, y=citric.acid, fill=location)) + geom_boxplot() + theme_bw() + labs(title = "A Boxplot of Citric Acid by Type", x = "Type", y="Citric Acid", color = "Location")
+
+# Residual Sugar
+# From natural grape sugars leftover
+
+# Red wine has very low residual sugar, while white has higher residual sugar. 
+# California white wine shows some outliers
+
+# White wine tends to have more natural grape sugars left over.
+wines %>% ggplot(aes(x=type, y=residual.sugar, fill=location)) + geom_boxplot() + theme_bw() + labs(title = "A Boxplot of Residual Sugar by Type", x = "Type", y="Residual Sugar", color = "Location")
+
+# Chlorides
+# White wine tends to have lower chlorides compared to red wine, and among them, texas has higher distribution of chlorides in both red and white
+#red wine is slatier
+# texas tends to have more chlorides. Texas wine is saltier
+# Usually less than 500 mg/L
+wines %>% ggplot(aes(x=type, y=chlorides, fill=location)) + geom_boxplot() + theme_bw() + labs(title = "A Boxplot of Chlorides by Type", x = "Type", y="Chlorides", color = "Location")
+
+# Free Sulfur Dioxide
+
+# White Free Sulfur Dioxide is higher than red. Texas white wine has a broader distribution of free sulfur dioxide.
+# There is a significant outlier in Texas for white-free sulfur dioxide.
+wines %>% ggplot(aes(x=type, y=free.sulfur.dioxide, fill=location)) + geom_boxplot() + theme_bw() + labs(title = "A Boxplot of Free Sulfur Dioxide by Type", x = "Type", y="Free Sulfur Dioxide", color = "Location")
+
+# Total Sulfur Dioxide
+
+# White wine has higher Total Sulfur Dioxide. Texas tends to have higher sulfur dioxides.
+# White wine needs more preservatives to prevent oxidation and spoilage and to maintain freshness.
+wines %>% ggplot(aes(x=type, y=total.sulfur.dioxide, fill=location)) + geom_boxplot() + theme_bw() + labs(title = "A Boxplot of Total Sulfur Dioxide by Type", x = "Type", y="Total Sulfur Dioxide", color = "Location")
+
+# Density
+# Red wine has a higher density, and Texas wine has a higher density than California
+
+#Red wine is generally considered denser than white wine because, during its production, the grape skins are left in contact with the juice during fermentation, which extracts tannins from the skins, resulting in a "fuller body" and denser texture compared to white wine where the skins are removed, leaving a lighter wine with less tannin content.
+wines %>% ggplot(aes(x=type, y=density, fill=location)) + geom_boxplot() + theme_bw() + labs(title = "A Boxplot of Density by Type", x = "Type", y="Density", color = "Location")
+
+
+# pH
+
+# Red wine has higher pH => meaning lower acidity. The location doesn't show much difference here.
+wines %>% ggplot(aes(x=type, y=pH, fill=location)) + geom_boxplot() + theme_bw() + labs(title = "A Boxplot of pH by Type", x = "Type", y="pH", color = "Location")
+
+
+# Sulphates
+# Red wine has higher sulfates, and California has higher sulfates in both red and white wines.
+# Wine with higher acidity requires less sulfates than wine with lower acidity
+# Wines with more sugar need more sulfites to prevent secondary fermentation.
+wines %>% ggplot(aes(x=type, y=sulphates, fill=location)) + geom_boxplot() + theme_bw() + labs(title = "A Boxplot of Sulphates by Type", x = "Type", y="Sulphates", color = "Location")
+
+
+# Alcohol
+# high sugar => high alcohol
+# Cooler climates make it more challenging for grapes to ripen, so the fruit is often harvested with lower sugar levels. => low alcohol level
+# Warmer climates allow grapes to ripen longer on the vine, producing higher alcohol levels.
+# California has higher alcohol!
+wines %>% ggplot(aes(x=type, y=alcohol, fill=location)) + geom_boxplot() + theme_bw() + labs(title = "A Boxplot of Alcohol by Type", x = "Type", y="Alcohol", color = "Location")
+
+```
+
+## A 3D scatterplot that shows high correlation among density, TSO2, Volatile Acidity
+```{r}
+plot_ly(data = wines,
+        x = ~density,
+        y = ~total.sulfur.dioxide,
+        z = ~volatile.acidity,
+        type = "scatter3d",
+        mode = "markers",
+        color = ~type, # Use color for location
+        colors = c("#C8102E", "#0033A0"), # Specify desired colors
+        #symbol = ~type,    # Use shape for type (red/white)
+        marker = list(size = 4, opacity = 0.7)) %>%
+  layout(title = "3D Scatterplot: Type of Wine by Density, Total SO2, and Volatile Acidity",
+         scene = list(xaxis = list(title = "Density"),
+                      yaxis = list(title = "Total SO2"),
+                      zaxis = list(title = "Volatile Acidity")),
+         legend = list(title = list(text = "Legend")))
+```
+
+## 2 Dimensional of 3 variables with type
+```{r}
+#Density: The highest point looks like outliers. => more investigation needed.
+wines %>% ggplot(aes(x=type, y=density, fill=type)) + geom_boxplot() + ggtitle("A boxplot of density by type" ) +xlab("Type") + ylab("Density") +  theme_bw() 
+
+#SO2: The Legal limit is known as 350. Hence the outlier we see in white wine, we should be cautious.
+wines %>% ggplot(aes(x=type, y=total.sulfur.dioxide, fill=type)) + geom_boxplot() + ggtitle("A boxplot of total SO2 by type" ) +xlab("Type") + ylab("Total SO2") +  theme_bw() 
+
+#  Volatile Acidity: There's an outlier around 1.6 in red wine. Since red wine's legal limit is 1.4mg/L, we should consider whether we still want this outlier or not.
+wines %>% ggplot(aes(x=type, y=volatile.acidity, fill=type)) + geom_boxplot() + ggtitle("A boxplot of volatile acidity by type" ) +xlab("Type") + ylab("Volatile Acidity") +  theme_bw()
+```
+
+## More investigation in Density
+
+As per domain knowledge, the high density will have high residual sugar. According to the outlier point, it has a high residual point, which was an influential point in residual sugar.
+```{r}
+subset_wines <- wines %>% filter(density > 1.01)
+print(subset_wines)
+
+wines %>% ggplot(aes(x=type, y=residual.sugar, fill=type)) + geom_boxplot() + ggtitle("A boxplot of residual sugar by type" ) +xlab("Type") + ylab("Residual Sugar") +  theme_bw()
+wines %>% ggplot(aes(x=type, y=free.sulfur.dioxide, fill=type)) + geom_boxplot() + ggtitle("A boxplot of residual sugar by type" ) +xlab("Type") + ylab("Residual Sugar") +  theme_bw()
+
+# Positive relationship
+wines %>% ggplot(aes(x = density , y=residual.sugar, color=type)) + geom_point() + ggtitle("A scatterplot between Density and Residual Sugar") + xlab("Density") + ylab("Residual Sugar")
+
+```
+
+## Wine Quality
+```{r}
+#Quality
+ggplot(wines, aes(x = quality)) + 
+  geom_bar(fill = "royalblue") + 
+  labs(title = "Distribution of Wine Quality", x = "Quality", y = "Count")
+
+```
+
+## GGpair plot
+```{r}
+# Create a pairplot for quality, type, and location
+ggpairs(wines, 
+        columns = c("quality", "type", "location"), 
+        mapping = aes(color = type), 
+        lower = list(continuous = wrap("points", alpha = 0.6)),
+        upper = list(continuous = wrap("cor", size = 3))) +
+        labs(title = "Wine Quality by Location and Type")
+
+```
+
+## EDA by Location
+
+```{r}
+ggpairs(
+  wines,
+  columns = c('fixed.acidity', 'volatile.acidity', 'citric.acid', 'residual.sugar', 'chlorides', 'free.sulfur.dioxide', 'total.sulfur.dioxide', 'density', 'pH', 'sulphates', 'alcohol','quality'),
+  aes(color = location, alpha = .8),  
+  title = "Pairwise Relationships with Quality as Color",
+  lower = list(continuous = "smooth"),
+  upper = list(continuous = "cor")
+)
+
+
+# Calculate mean quality and count by location
+summary_table <- wines %>%
+  group_by(location) %>%
+  summarise(
+    count = n(),
+    mean_quality = mean(quality, na.rm = TRUE)
+  )
+
+# Display the table using kable
+kable(summary_table, format = "pipe", col.names = c("Location", "Count", "Mean Quality"))
+
+
+ggplot(wines, aes(x = as.factor(quality), fill = location)) +
+  geom_bar(position = "fill", color = "black", width = 0.7) +  # Bar border color and width
+  geom_text(stat = "count", aes(label = ..count..), 
+            position = position_fill(vjust = 0.5), size = 3, color = "white", fontface = "bold") +  # Text styling
+  labs(
+    title = "Quality by Location: California vs. Texas",
+    x = "Wine Quality",
+    y = "Proportion",
+    fill = "Location"
+  ) +
+  scale_fill_manual(values = c("California" = "#0033A0", "Texas" = "#C8102E")) +  # Custom colors for locations
+  theme_minimal() +  # Use a minimal theme
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),  # Title styling
+    axis.title = element_text(size = 12),  # Axis title size
+    axis.text = element_text(size = 10),   # Axis text size
+    legend.position = "top"  # Move the legend to the top
+  )
+
+
+ggplot(wines, aes(x = alcohol, y = volatile.acidity, color = location)) +
+  geom_point(alpha = .6) +
+  labs(
+    title = "Scatterplot of Factor 1 vs. Factor 2",
+    x = "Factor 1",
+    y = "Factor 2",
+    color = "Location"
+  ) +
+  theme_solarized()
+
+
+plot_ly(data = wines, 
+        x = ~alcohol, 
+        y = ~density,
+        z = ~volatile.acidity, 
+        type = "scatter3d", 
+        mode = "markers",
+        color = ~location, 
+        colors = c("#0033A0", "#C8102E"),
+        marker = list(size = 4, opacity = 0.5)) |>
+  layout(title = "3D Scatterplot: Location of Wine by Alcohol, Density, and Volatile Acidity",
+         scene = list(xaxis = list(title = "Alcohol"),
+                      yaxis = list(title = "Density"),
+                      zaxis = list(title = "Volatile Acidity")),
+         legend = list(title = list(text = "Legend")))
+```
+
+## EDA by Quality
+
+```{r}
+# create a 3D scatterplot for quality
+plot_ly(data = wines, 
+        x = ~volatile.acidity, 
+        y = ~density,
+        z = ~alcohol, 
+        type = "scatter3d", 
+        mode = "markers",
+        color = ~as.factor(quality), 
+        colors = c("#FF0000",  "#FF5733", "#FFFF33","#33FF57","#33FFF6","#0099ff", "#9900ff"),
+        marker = list(size = 4,  opacity = 0.8)) |>
+  layout(title = "3D Scatterplot: Location of Wine by Volatile Acidity, Density, and Alcohol",
+         scene = list(xaxis = list(title = "Volatile Acidity"),
+                      yaxis = list(title = "Density"),
+                      zaxis = list(title = "Alcohol")),
+         legend = list(title = list(text = "Legend")))
+```
+
+## Create a correlation matrix to select variables for the Linear Regression Model
+
+```{r}
+# Encode 'location' and 'type' as a numeric values
+wines$type <- as.numeric(as.factor(wines$type))
+wines$location <- as.numeric(as.factor(wines$location))
+numeric_columns <- wines[, sapply(wines, is.numeric)]
+# Compute the correlation matrix
+cor_matrix <- cor(numeric_columns, use = "complete.obs")
+# Visualize the correlation matrix with numbers
+library(corrplot)
+corrplot(cor_matrix, method = "color", type = "upper", 
+         tl.col = "black", tl.srt = 45,
+         title = "Correlation Matrix Including Location and Type", mar = c(0, 0, 1, 0),
+         addCoef.col = "black", 
+         number.cex = 0.7,
+         col = colorRampPalette(c("#B2182B", "#D6604D", "#F4A582", "#FDDBC7", "#FFFFFF", "#D1E5F0", "#92C5DE", "#4393C3", "#2166AC"))(200))
+
+
+```

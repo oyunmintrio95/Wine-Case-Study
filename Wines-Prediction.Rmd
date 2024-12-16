@@ -1,0 +1,338 @@
+---
+title: "Wines-Prediction"
+author: "Hayoung Cheon"
+date: "2024-12-15"
+output: html_document
+---
+
+```{r}
+library(dplyr)
+library(MASS)
+library(car)
+library(ggplot2)
+library(tidyverse)
+library(GGally)
+library(plotly)
+library(olsrr)
+library(caret)
+library(leaps)
+library(corrplot)
+```
+## Load Data
+```{r}
+wines <- read.csv("/Users/oyunm/Desktop/SMU/DS-6306-Doing-the-Data-Science/Project 2/Wine Train Set.csv")
+head(wines)
+
+wines$location <- gsub("Califormia", "California", wines$location, ignore.case=TRUE)
+table(wines$quality, wines$location)
+```
+
+
+
+# base model
+According to p-values citric.acid is not significant variable to the model.
+```{r}
+head(wines)
+
+# drop ID & quality
+wine_filtered <-wines%>%select(-ID)
+
+wine_filtered$quality <- as.numeric(as.character(wine_filtered$quality))
+
+fit <- lm(quality ~ ., data=wine_filtered  )
+summary(fit)
+```
+
+# Correlation Matrix
+
+According to Correlation MAtrix the variables that are highly correlated to the quality was volatile.acidity, chlorides, density and alcohol. We 
+```{r}
+excluded_columns <- c("ID","type", "location")
+selected_data <- wines[, setdiff(names(wines), excluded_columns)]
+
+str(selected_data)
+selected_data$quality <- as.numeric(selected_data$quality)
+
+# Compute correlation matrix for the selected columns
+cor_matrix <- cor(selected_data)
+print(cor_matrix)
+
+# Visualize correlation matrix
+
+# Install and load the corrplot package
+#install.packages("corrplot")
+library(corrplot)
+
+# Plot the correlation matrix
+corrplot(
+  cor_matrix, 
+  method = "circle",
+  addCoef.col = "black",
+  number.cex = 0.8,          # Adjust text size for values
+  tl.col = "black",          # Black color for labels
+  tl.cex = 0.8  
+  )
+```
+
+# Check Multicollineaarity with Variance Inflation Factor(VIF)
+
+Density shows the highest VIF, and according to correlation matrix it has big correlation to all other variables that have high correlation with quality.
+```{r}
+
+# Ensure they are factor
+wine_filtered$type <- as.factor(wine_filtered$type)
+wine_filtered$location <- as.factor(wine_filtered$location)
+
+# fit a model without citric.acid
+fit <- lm(quality ~ fixed.acidity + volatile.acidity +residual.sugar+chlorides + free.sulfur.dioxide +total.sulfur.dioxide + density +pH + sulphates +alcohol + type + location, data=wine_filtered)
+
+# 
+summary(fit)
+vif(fit)
+AIC(fit)
+
+```
+## Without density
+```{r}
+# fit a model without citric.acid
+fit <- lm(quality ~ volatile.acidity+chlorides + free.sulfur.dioxide +total.sulfur.dioxide + density+ I(density^2) + sulphates +alcohol + I(alcohol^2) + type + location, data=wine_filtered)
+
+# 
+summary(fit)
+vif(fit)
+AIC(fit)
+```
+
+# Check residual plots for assumption met
+```{r}
+
+par(mfrow = c(2, 2))  # Arrange plots in a 2x2 grid
+plot(fit)
+
+```
+# Explore influential points found during EDA
+```{r}
+wine_filtered[5414,]
+wine_filtered[4326,]
+
+# 5151,3152 : Restrict Range of density outliers to 1.05. 
+subset_wines <- wines %>% filter(density > 1.01)
+print(subset_wines)
+
+# 1056 : Volatile.acidity Morethan 1.4 which is legal limit
+subset_wines<- wines %>% filter(volatile.acidity > 1.5)
+print(subset_wines)
+
+wine_filt2 <- wine_filtered[-c(5151,3152, 1056, 5414,4326 ),]
+fit2 <- lm(quality ~ fixed.acidity + volatile.acidity+chlorides + free.sulfur.dioxide +total.sulfur.dioxide + density +pH + sulphates +alcohol + type + location, data=wine_filt2)
+```
+# Check high leverage rows
+```{r}
+# Calculate leverage values
+leverage_values <- hatvalues(fit2)
+
+# Set high-leverage threshold
+n <- nrow(wine_filt2)
+p <- length(coef(fit2))
+threshold <- 2 * (p + 1) / n
+
+# Identify high-leverage rows
+high_leverage_rows <- which(leverage_values > threshold)
+
+# View high-leverage points
+print(high_leverage_rows)
+print(wine_filt2[high_leverage_rows, ])
+
+```
+```{r}
+residuals <- resid(fit)
+
+ggplot(data = NULL, aes(x = residuals)) +
+  geom_histogram(binwidth = 0.5, fill = "blue", color = "black") +
+  labs(title = "Residuals Distri
+       bution", x = "Residuals", y = "Frequency")
+
+
+```
+
+# Quadratic
+```{r}
+fit_quad <- lm(quality ~ .  + I(volatile.acidity^2) +
+                 I(residual.sugar^2)  +
+                 I(density^2) + I(pH^2) + I(alcohol^2) - citric.acid - chlorides, 
+               data = wine_filt2)
+summary(fit_quad)
+AIC(fit_quad)
+vif(fit_quad)
+
+fit2 <-lm(quality ~ .  + I(volatile.acidity^2) +
+                 I(residual.sugar^2)  +
+                 I(density^2) + I(pH^2) + I(alcohol^2) - citric.acid - chlorides, 
+               data = wine_filt2)
+```
+
+# Train DAta and find Mean Absolute Error
+```{r}
+set.seed(123)
+train_idx <- sample(seq_len(nrow(wine_filt2)), size = 0.7 * nrow(wine_filt2))
+train_data <- wine_filt2[train_idx, ]
+test_data <- wine_filt2[-train_idx, ]
+
+# Fit the regression model
+
+
+fit2 <-lm(quality ~ fixed.acidity + volatile.acidity+chlorides + free.sulfur.dioxide +total.sulfur.dioxide + sulphates +alcohol + type + location  + I(volatile.acidity^2) +I(residual.sugar^2)  +I(density^2)  + I(alcohol^2), data = wine_filt2)
+vif(fit2)
+
+
+# Predict on the test data
+predictions <- predict(fit2, test_data)
+
+# Evaluate performance using Mean Absolute Error (MAE)
+actual <- test_data$quality
+mae <- mean(abs(predictions - actual))  # Calculate MAE
+mae
+
+```
+
+# Train and test data with cubic model
+```{r}
+set.seed(123)
+train_idx <- sample(seq_len(nrow(wine_filt2)), size = 0.7 * nrow(wine_filt2))
+train_data <- wine_filt2[train_idx, ]
+test_data <- wine_filt2[-train_idx, ]
+
+# Fit the regression model
+
+
+fit3 <-lm(log(quality) ~  volatile.acidity + log(free.sulfur.dioxide)  + log(sulphates) +alcohol + type + location  + I(volatile.acidity^2) +I(log(residual.sugar)^2)  +I(log(density)^2)  + I(alcohol^2)+ I(volatile.acidity^3)+ I(citric.acid^3)+ I(log(chlorides)^3) + I(total.sulfur.dioxide^3) + I(alcohol^3) , data = wine_filt2)
+vif(fit3)
+summary(fit3)
+
+
+# Predict on the test data
+predictions <- exp(predict(fit3, test_data))
+
+# Evaluate performance using Mean Absolute Error (MAE)
+actual <- test_data$quality
+mae <- mean(abs(predictions - actual))  # Calculate MAE
+mae
+```
+
+# Again check for Outliers and remove(restrict range)
+```{r}
+par(mfrow = c(2, 2))
+plot(fit3)
+
+cooksd <- cooks.distance(fit3)
+outliers <- which(cooksd > (4 / nrow(wine_filt2)))  # Common threshold
+wine_filt2_cleaned <- wine_filt2[-outliers, ]
+
+
+```
+
+## Train and test data with cubic model
+After restricting the range of outliers, the mae improved
+```{r}
+set.seed(123)
+train_idx <- sample(seq_len(nrow(wine_filt2_cleaned)), size = 0.7 * nrow(wine_filt2_cleaned))
+train_data <- wine_filt2_cleaned[train_idx, ]
+test_data <- wine_filt2_cleaned[-train_idx, ]
+
+# Fit the regression model
+
+
+fit4 <-lm(log(quality) ~  volatile.acidity + log(free.sulfur.dioxide)  + log(sulphates) +alcohol  + location  + I(volatile.acidity^2) +I(log(residual.sugar)^2)  +I(log(density)^2)  + I(alcohol^2)+ I(volatile.acidity^3)+ I(citric.acid^3)+ I(log(chlorides)^3) + I(total.sulfur.dioxide^3) + I(alcohol^3) , data = wine_filt2_cleaned)
+vif(fit4)
+summary(fit4)
+
+
+# Predict on the test data
+predictions <- exp(predict(fit4, test_data))
+
+
+# Evaluate performance using Mean Absolute Error (MAE)
+actual <- test_data$quality
+mae <- mean(abs(predictions - actual))  # Calculate MAE
+mae
+```
+
+
+## Cross-validation to validate model's performance
+
+```{r}
+train_control <- trainControl(method = "cv", number = 5)
+fit_cv <- train(log(quality) ~  volatile.acidity + log(free.sulfur.dioxide)  + log(sulphates) +alcohol  + location  + I(volatile.acidity^2) +I(log(residual.sugar)^2)  +I(log(density)^2)  + I(alcohol^2)+ I(volatile.acidity^3)+ I(citric.acid^3)+ I(log(chlorides)^3) + I(total.sulfur.dioxide^3) + I(alcohol^3) , data = wine_filt2_cleaned, method = "lm", trControl = train_control)
+fit_cv
+```
+
+# Conclusion
+By using Regression model, the best model fit was log(quality) ~  volatile.acidity + log(free.sulfur.dioxide)  + log(sulphates) +alcohol + location  + I(volatile.acidity^2) +I(log(residual.sugar)^2)  +I(log(density)^2)  + I(alcohol^2)+ I(volatile.acidity^3)+ I(citric.acid^3)+ I(log(chlorides)^3) + I(total.sulfur.dioxide^3) + I(alcohol^3). Although since it is polynomial, we have to look out for overfitting. 
+
+# Create CSV file with the prediction
+```{r}
+data_test <- read.csv("/Users/oyunm/Desktop/SMU/DS-6306-Doing-the-Data-Science/Project 2/Wine Test Set.csv")
+
+data_loc_type <- read.csv("/Users/oyunm/Desktop/SMU/DS-6306-Doing-the-Data-Science/Project 2/Wine Types And Locations.csv")
+subset_data <- data_loc_type[5464:nrow(data_loc_type), ]
+
+# Merge data_test + subset_data(this has type and location)
+joined_data_test <- left_join(data_test, subset_data, by = "ID")
+
+# In Joined_data_test taking out any missing data from type.
+joined_data_test %>% filter(!is.na(joined_data_test$type))
+
+#There will be missing data after prediction since we are omitting type that are missing. for those data we can set prediction with median number.
+joined_data_test$quality <- 6
+
+fit4 <-lm(log(quality) ~  volatile.acidity + log(free.sulfur.dioxide)  + log(sulphates) +alcohol + type + location  + I(volatile.acidity^2) +I(log(residual.sugar)^2)  +I(log(density)^2)  + I(alcohol^2)+ I(volatile.acidity^3)+ I(citric.acid^3)+ I(log(chlorides)^3) + I(total.sulfur.dioxide^3) + I(alcohol^3) , data = wine_filt2_cleaned)
+vif(fit4)
+summary(fit4)
+
+wine_filt2$type <- as.factor(wine_filt2$type)
+joined_data_test$type <- as.factor(joined_data_test$type)
+
+# type's level mining
+# Replace "Red" with "red" in the location column
+joined_data_test$type <- gsub("Red", "red", joined_data_test$type, ignore.case = TRUE)
+
+#Replace "White" with "white" in the type column
+joined_data_test$type <- gsub("White", "white", joined_data_test$type, ignore.case = TRUE)
+
+joined_data_test$location <- gsub("Califormia", "California", joined_data_test$location, ignore.case = TRUE)
+
+
+#Taking care of missing data
+#joined-data-test <- na.omit(joined_data_test)
+
+# Levels in the training data
+levels(wine_filt2$type)
+
+# Levels in the test data
+levels(joined_data_test$type)
+
+# Ensure the type column is a factor
+joined_data_test$type <- as.factor(joined_data_test$type)
+
+# Ensure type is a factor in both data sets
+wine_filt2$type <- as.factor(wine_filt2$type)
+joined_data_test$type <- as.factor(joined_data_test$type)
+
+# Match the levels of joined_data_test$type with wine_filt2$type
+joined_data_test$type <- factor(joined_data_test$type, levels = levels(wine_filt2$type))
+
+
+# Match levels with the training data
+levels(joined_data_test$type) <- levels(wine_filt2$type)
+
+
+# Predict on the test data
+predictions <- exp(predict(fit4, newdata=joined_data_test))
+joined_data_test$quality <- predictions
+
+
+output <- joined_data_test |> dplyr::select("ID", "quality")
+
+# Write Results
+write.csv(output, file = "wine Prediction Set final.csv", row.names = FALSE)
+```
